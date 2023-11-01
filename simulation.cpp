@@ -1,20 +1,19 @@
 #include <boost/program_options.hpp>
 
-#include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <random>
-#include <vector>
 
 namespace po = boost::program_options;
 
-double simulate(int value);
-bool simulate_once();
+double simulate(int64_t value);
+bool simulate_once(std::mt19937 &generator, std::discrete_distribution<> &twodice);
 
 int main(int argc, char **argv)
 {
     po::options_description description("Usage");
     description.add_options()("help", "prints this message")(
-        "size", po::value<int>()->default_value(1000),
+        "size", po::value<int64_t>()->default_value(1000),
         "the size of the simulation");
 
     po::positional_options_description pdescription;
@@ -36,19 +35,24 @@ int main(int argc, char **argv)
 
     if (vm.count("size"))
     {
-        int value = vm["size"].as<int>();
-        std::cout << "Doing " << value << " simulations\n";
-        std::cout << simulate(value);
+        int64_t value = vm["size"].as<int64_t>();
+        std::cout << "Running " << value << " simulations...\n";
+        std::cout << simulate(value) << std::endl;
     }
     return 0;
 }
 
-double simulate(int size)
+double simulate(int64_t size)
 {
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::discrete_distribution<int> twodice(
+        {1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1});
+
     int64_t total = 0;
-    for (int i = 0; i < size; i++)
+    for (int64_t i = 0; i < size; i++)
     {
-        if (simulate_once())
+        if (simulate_once(generator, twodice))
         {
             total++;
         }
@@ -60,31 +64,27 @@ double simulate(int size)
     return static_cast<double>(total) / size;
 }
 
-bool simulate_once()
+bool simulate_once(std::mt19937 &generator, std::discrete_distribution<> &twodice)
 {
-    std::random_device rd;
-    std::mt19937 generator(rd());
-    std::uniform_int_distribution<int> distribution(1, 6);
-
-    int initial_roll = distribution(generator) + distribution(generator);
+    int initial_roll = twodice(generator);
     int second_roll;
 
     switch (initial_roll)
     {
-    case 7:
-    case 11:
-        return true;
-    case 2:
-    case 3:
-    case 12:
-        return false;
+        case 5:
+        case 9:
+            return true;
+        case 0:
+        case 1:
+        case 10:
+            return false;
     }
 
     while (true)
     {
-        second_roll = distribution(generator) + distribution(generator);
+        second_roll = twodice(generator);
 
-        if (second_roll == 7)
+        if (second_roll == 5)
         {
             return false;
         }
