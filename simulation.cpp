@@ -1,13 +1,9 @@
+#include <iostream>
 #include <cstdint>
 #include <future>
-#include <iomanip>
-#include <iostream>
-#include <numeric>
 #include <random>
-#include <thread>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
-#include <boost/multiprecision/fwd.hpp>
 #include <boost/program_options.hpp>
 
 namespace bpo = boost::program_options;
@@ -49,15 +45,20 @@ int main(int argc, char **argv)
         {
             int64_t value = vm["size"].as<int64_t>();
             int64_t thread_num = vm["concurrency"].as<int64_t>();
+
             std::cout << "Running " << value << " simulations...\n";
+
             std::vector<std::future<int64_t>> future_results;
             future_results.reserve(thread_num);
+
             int64_t load_per_thread = value / thread_num;
+
             for (int i = 0; i < thread_num - 1; i++)
             {
                 future_results.push_back(
                     std::async(std::launch::async, simulate, load_per_thread));
             }
+
             future_results.push_back(
                 std::async(std::launch::async, simulate,
                            load_per_thread + value % thread_num));
