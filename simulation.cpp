@@ -1,5 +1,3 @@
-#include <boost/program_options.hpp>
-
 #include <cstdint>
 #include <future>
 #include <iomanip>
@@ -8,7 +6,12 @@
 #include <random>
 #include <thread>
 
-namespace po = boost::program_options;
+#include <boost/multiprecision/cpp_dec_float.hpp>
+#include <boost/multiprecision/fwd.hpp>
+#include <boost/program_options.hpp>
+
+namespace bpo = boost::program_options;
+namespace bmp = boost::multiprecision;
 
 int64_t simulate(int64_t value);
 bool simulate_once(std::mt19937 &generator,
@@ -18,23 +21,23 @@ int main(int argc, char **argv)
 {
     try
     {
-        po::options_description description("Usage");
+        bpo::options_description description("Usage");
         description.add_options()("help", "prints this message")(
-            "size", po::value<int64_t>()->default_value(1000),
+            "size", bpo::value<int64_t>()->default_value(1000),
             "the size of the simulation")(
-            "concurrency", po::value<int32_t>()->default_value(1),
+            "concurrency", bpo::value<int64_t>()->default_value(1),
             "number of core(s) to use");
 
-        po::positional_options_description pdescription;
+        bpo::positional_options_description pdescription;
         pdescription.add("size", 1);
 
-        po::variables_map vm;
-        po::store(po::command_line_parser(argc, argv)
+        bpo::variables_map vm;
+        bpo::store(bpo::command_line_parser(argc, argv)
                       .options(description)
                       .positional(pdescription)
                       .run(),
                   vm);
-        po::notify(vm);
+        bpo::notify(vm);
 
         if (vm.count("help"))
         {
@@ -45,7 +48,7 @@ int main(int argc, char **argv)
         if (vm.count("size"))
         {
             int64_t value = vm["size"].as<int64_t>();
-            int32_t thread_num = vm["concurrency"].as<int32_t>();
+            int64_t thread_num = vm["concurrency"].as<int64_t>();
             std::cout << "Running " << value << " simulations...\n";
             std::vector<std::future<int64_t> > future_results;
             future_results.reserve(thread_num);
@@ -60,18 +63,17 @@ int main(int argc, char **argv)
 
             int64_t result = 0;
 
-            for(int i = 0; i < thread_num; i++)
+            for(int64_t i = 0; i < thread_num; i++)
             {
                 result += future_results[i].get();
             }
 
-            std::cout << std::fixed << std::setprecision(15)
-                      << static_cast<long double>(result) /
-                             value
-                      << std::endl;
+            bmp::cpp_dec_float<100> result_float(result);
+
+            std::cout << result_float.div_unsigned_long_long(value).str(50, std::ios::fixed) << std::endl;
         }
     }
-    catch (const po::error &e)
+    catch (const bpo::error &e)
     {
         std::cerr << e.what() << std::endl;
         std::cerr << "Use --help for usage information." << std::endl;
