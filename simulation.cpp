@@ -33,10 +33,10 @@ int main(int argc, char **argv)
 
         bpo::variables_map vm;
         bpo::store(bpo::command_line_parser(argc, argv)
-                      .options(description)
-                      .positional(pdescription)
-                      .run(),
-                  vm);
+                       .options(description)
+                       .positional(pdescription)
+                       .run(),
+                   vm);
         bpo::notify(vm);
 
         if (vm.count("help"))
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
             int64_t value = vm["size"].as<int64_t>();
             int64_t thread_num = vm["concurrency"].as<int64_t>();
             std::cout << "Running " << value << " simulations...\n";
-            std::vector<std::future<int64_t> > future_results;
+            std::vector<std::future<int64_t>> future_results;
             future_results.reserve(thread_num);
             int64_t load_per_thread = value / thread_num;
             for (int i = 0; i < thread_num - 1; i++)
@@ -58,19 +58,22 @@ int main(int argc, char **argv)
                 future_results.push_back(
                     std::async(std::launch::async, simulate, load_per_thread));
             }
-            future_results.push_back(std::async(std::launch::async, simulate,
-                                                load_per_thread + value % thread_num));
+            future_results.push_back(
+                std::async(std::launch::async, simulate,
+                           load_per_thread + value % thread_num));
 
             int64_t result = 0;
 
-            for(int64_t i = 0; i < thread_num; i++)
+            for (int64_t i = 0; i < thread_num; i++)
             {
                 result += future_results[i].get();
             }
 
             bmp::cpp_dec_float<100> result_float(result);
 
-            std::cout << result_float.div_unsigned_long_long(value).str(50, std::ios::fixed) << std::endl;
+            std::cout << result_float.div_unsigned_long_long(value).str(
+                             50, std::ios::fixed)
+                      << std::endl;
         }
     }
     catch (const bpo::error &e)
