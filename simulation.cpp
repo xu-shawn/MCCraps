@@ -16,53 +16,67 @@ bool simulate_once(std::mt19937 &generator,
 
 int main(int argc, char **argv)
 {
-    po::options_description description("Usage");
-    description.add_options()("help", "prints this message")(
-        "size", po::value<int64_t>()->default_value(1000),
-        "the size of the simulation")("concurrency",
-                                      po::value<int32_t>()->default_value(1),
-                                      "number of core(s) to use");
-
-    po::positional_options_description pdescription;
-    pdescription.add("size", 1);
-
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv)
-                  .options(description)
-                  .positional(pdescription)
-                  .run(),
-              vm);
-    po::notify(vm);
-
-    if (vm.count("help"))
+    try
     {
-        std::cout << description << "\n";
-        return 0;
-    }
+        po::options_description description("Usage");
+        description.add_options()("help", "prints this message")(
+            "size", po::value<int64_t>()->default_value(1000),
+            "the size of the simulation")(
+            "concurrency", po::value<int32_t>()->default_value(1),
+            "number of core(s) to use");
 
-    if (vm.count("size"))
-    {
-        int64_t value = vm["size"].as<int64_t>();
-        int32_t thread_num = vm["concurrency"].as<int32_t>();
-        std::cout << "Running " << value << " simulations...\n";
-        std::vector<std::future<int64_t>> future_results;
-        future_results.reserve(thread_num);
-        for (int i = 0; i < thread_num - 1; i++)
+        po::positional_options_description pdescription;
+        pdescription.add("size", 1);
+
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv)
+                      .options(description)
+                      .positional(pdescription)
+                      .run(),
+                  vm);
+        po::notify(vm);
+
+        if (vm.count("help"))
         {
-            future_results.push_back(std::async(simulate, value / thread_num));
+            std::cout << description << "\n";
+            return 0;
         }
-        future_results.push_back(
-            std::async(simulate, value / thread_num + value % thread_num));
 
-        std::cout << std::fixed << std::setprecision(15)
-                  << static_cast<long double>(std::accumulate(
-                         future_results.begin(), future_results.end(), 0,
-                         [](int64_t partial_sum, std::future<int64_t> &x)
-                         { return partial_sum + x.get(); })) /
-                         value
-                  << std::endl;
+        if (vm.count("size"))
+        {
+            int64_t value = vm["size"].as<int64_t>();
+            int32_t thread_num = vm["concurrency"].as<int32_t>();
+            std::cout << "Running " << value << " simulations...\n";
+            std::vector<std::future<int64_t> > future_results;
+            future_results.reserve(thread_num);
+            int64_t load_per_thread = value / thread_num;
+            for (int i = 0; i < thread_num - 1; i++)
+            {
+                future_results.push_back(
+                    std::async(std::launch::async, simulate, load_per_thread));
+            }
+            future_results.push_back(std::async(std::launch::async, simulate,
+                                                load_per_thread + value % thread_num));
+
+            int64_t result = 0;
+
+            for(int i = 0; i < thread_num; i++)
+            {
+                result += future_results[i].get();
+            }
+
+            std::cout << std::fixed << std::setprecision(15)
+                      << static_cast<long double>(result) /
+                             value
+                      << std::endl;
+        }
     }
-
+    catch (const po::error &e)
+    {
+        std::cerr << e.what() << std::endl;
+        std::cerr << "Use --help for usage information." << std::endl;
+        return 1;
+    }
     return 0;
 }
 
@@ -91,7 +105,6 @@ bool simulate_once(std::mt19937 &generator,
                    std::discrete_distribution<> &twodice)
 {
     int initial_roll = twodice(generator);
-    int second_roll;
 
     switch (initial_roll)
     {
@@ -106,7 +119,7 @@ bool simulate_once(std::mt19937 &generator,
 
     while (true)
     {
-        second_roll = twodice(generator);
+        int second_roll = twodice(generator);
 
         if (second_roll == 5)
         {
