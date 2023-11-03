@@ -9,7 +9,7 @@
 namespace bpo = boost::program_options;
 namespace bmp = boost::multiprecision;
 
-int64_t simulate(int64_t value);
+int64_t simulate(int64_t value, unsigned int seed);
 bool simulate_once(std::mt19937 &generator,
                    std::discrete_distribution<> &twodice);
 
@@ -45,23 +45,23 @@ int main(int argc, char **argv)
         {
             int64_t value = vm["size"].as<int64_t>();
             int64_t thread_num = vm["concurrency"].as<int64_t>();
+            int64_t load_per_thread = value / thread_num;
+            std::random_device rd;
 
             std::cout << "Running " << value << " simulations...\n";
 
             std::vector<std::future<int64_t>> future_results;
             future_results.reserve(thread_num);
 
-            int64_t load_per_thread = value / thread_num;
-
             for (int i = 0; i < thread_num - 1; i++)
             {
                 future_results.push_back(
-                    std::async(std::launch::async, simulate, load_per_thread));
+                    std::async(std::launch::async, simulate, load_per_thread, rd()));
             }
 
             future_results.push_back(
                 std::async(std::launch::async, simulate,
-                           load_per_thread + value % thread_num));
+                           load_per_thread + value % thread_num, rd()));
 
             int64_t result = 0;
 
@@ -86,10 +86,9 @@ int main(int argc, char **argv)
     return 0;
 }
 
-int64_t simulate(int64_t size)
+    int64_t simulate(int64_t size, unsigned int seed)
 {
-    std::random_device rd;
-    std::mt19937 generator(rd());
+    std::mt19937 generator(seed);
     std::discrete_distribution<int> twodice({1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1});
 
     int64_t total = 0;
